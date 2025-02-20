@@ -25,7 +25,7 @@ def replace_key(old,new,data,name=''):
             print(f'{name} public key patched {old[:16].hex().upper()}...')
             data = data.replace(old_bytes,new_bytes)
             old_codes = [bytes.fromhex('793583E2'),bytes.fromhex('FD3A83E2'),bytes.fromhex('193D83E2')]    
-            new_codes = [bytes.fromhex('28F886E3'),bytes.fromhex('2C141123'),bytes.fromhex('126CFBCA')]  
+            new_codes = [bytes.fromhex('723A34A6'),bytes.fromhex('E3300F23'),bytes.fromhex('E4BAA061')]  
             data =  replace_chunks(old_codes, new_codes, data,name)
     return data
 
