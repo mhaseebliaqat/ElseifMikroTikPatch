@@ -25,7 +25,7 @@ def replace_key(old,new,data,name=''):
             print(f'{name} public key patched {old[:16].hex().upper()}...')
             data = data.replace(old_bytes,new_bytes)
             old_codes = [bytes.fromhex('793583E2'),bytes.fromhex('FD3A83E2'),bytes.fromhex('193D83E2')]    
-            new_codes = [bytes.fromhex('FF34A0E3'),bytes.fromhex('753C83E2'),bytes.fromhex('FC3083E2')]  
+            new_codes = [bytes.fromhex('28F886E3'),bytes.fromhex('2C141123'),bytes.fromhex('126CFBCA')]  
             data =  replace_chunks(old_codes, new_codes, data,name)
     return data
 
@@ -273,68 +273,10 @@ def patch_kernel(data:bytes,key_dict):
         return patch_initrd_xz(data,key_dict)
     else:
         raise Exception('unknown kernel format')
-
-def patch_squashfs(path,key_dict):
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            file = os.path.join(root,file)
-            if os.path.isfile(file):
-                data = open(file,'rb').read()
-                for old_public_key,new_public_key in key_dict.items():
-                    _data = replace_key(old_public_key,new_public_key,data,file)
-                    if _data != data:
-                        open(file,'wb').write(_data)
-                url_dict = {
-                    os.environ['MIKRO_LICENCE_URL'].encode():os.environ['CUSTOM_LICENCE_URL'].encode(),
-                    os.environ['MIKRO_UPGRADE_URL'].encode():os.environ['CUSTOM_UPGRADE_URL'].encode(),
-                    os.environ['MIKRO_CLOUD_URL'].encode():os.environ['CUSTOM_CLOUD_URL'].encode(),
-                    os.environ['MIKRO_CLOUD_PUBLIC_KEY'].encode():os.environ['CUSTOM_CLOUD_PUBLIC_KEY'].encode(),
-                }
-                data = open(file,'rb').read()
-                for old_url,new_url in url_dict.items():
-                    if old_url in data:
-                        print(f'{file} url patched {old_url.decode()[:7]}...')
-                        data = data.replace(old_url,new_url)
-                        open(file,'wb').write(data)
-                        
-                if os.path.split(file)[1] == 'licupgr':
-                    url_dict = {
-                        os.environ['MIKRO_RENEW_URL'].encode():os.environ['CUSTOM_RENEW_URL'].encode(),
-                    }
-                    for old_url,new_url in url_dict.items():
-                        if old_url in data:
-                            print(f'{file} url patched {old_url.decode()[:7]}...')
-                            data = data.replace(old_url,new_url)
-                            open(file,'wb').write(data)
                     
 def run_shell_command(command):
     process = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return process.stdout, process.stderr
-
-def patch_npk_package(package,key_dict):
-    if package[NpkPartID.NAME_INFO].data.name == 'system':
-        file_container = NpkFileContainer.unserialize_from(package[NpkPartID.FILE_CONTAINER].data)
-        for item in file_container:
-            if item.name in [b'boot/EFI/BOOT/BOOTX64.EFI',b'boot/kernel',b'boot/initrd.rgz']:
-                print(f'patch {item.name} ...')
-                item.data = patch_kernel(item.data,key_dict)
-        package[NpkPartID.FILE_CONTAINER].data = file_container.serialize()
-        squashfs_file = 'squashfs-root.sfs'
-        extract_dir = 'squashfs-root'
-        open(squashfs_file,'wb').write(package[NpkPartID.SQUASHFS].data)
-        print(f"extract {squashfs_file} ...")
-        run_shell_command(f"unsquashfs -d {extract_dir} {squashfs_file}")
-        patch_squashfs(extract_dir,key_dict)
-        logo = os.path.join(extract_dir,"nova/lib/console/logo.txt")
-        run_shell_command(f"sudo sed -i '1d' {logo}") 
-        run_shell_command(f"sudo sed -i '8s#.*#  elseif@live.cn     https://github.com/elseif/MikroTikPatch#' {logo}")
-        print(f"pack {extract_dir} ...")
-        run_shell_command(f"rm -f {squashfs_file}")
-        run_shell_command(f"mksquashfs {extract_dir} {squashfs_file} -quiet -comp xz -no-xattrs -b 256k")
-        print(f"clean ...")
-        run_shell_command(f"rm -rf {extract_dir}")
-        package[NpkPartID.SQUASHFS].data = open(squashfs_file,'rb').read()
-        run_shell_command(f"rm -f {squashfs_file}")
 
 def patch_npk_file(key_dict,kcdsa_private_key,eddsa_private_key,input_file,output_file=None):
     npk = NovaPackage.load(input_file)   
