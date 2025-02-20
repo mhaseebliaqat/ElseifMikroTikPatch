@@ -160,7 +160,6 @@ jobs:
         sudo rsync -a ./iso/ ./new_iso/
         sudo umount ./iso
         sudo rm -rf ./iso
-        fi
         NPK_FILES=$(find ./new_iso/*.npk)
         for file in $NPK_FILES; do
             sudo -E python3 npk.py sign $file $file
